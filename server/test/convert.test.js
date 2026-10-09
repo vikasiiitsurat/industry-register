@@ -23,13 +23,14 @@ test('deployed entrypoint health is ready without DATABASE_URL and finds worker 
   assert.equal(response.status, 200);
   assert.equal(response.body.status, 'ok');
   assert.equal(response.body.service, 'conversion');
+  assert.equal(response.body.processingMode, 'in-process');
   assert.equal(response.body.workerFilesAvailable, true);
   assert.equal(response.body.limits.maxFileBytes, 4_000_000);
   assert.equal(response.body.limits.maxOutputBytes, 4_000_000);
   assert.equal((await request(deployedApp).get('/api/stats')).status, 404);
 });
 
-test('one Word file returns the 34-column Excel output from a parser worker', async () => {
+test('one Word file returns the 34-column Excel output from deployed entrypoint', async () => {
   const response = await uploadFile(deployedApp, await fixtureDocx(), 'input.docx');
   assert.equal(response.status, 200);
   assert.equal(response.headers['x-record-count'], '2');

@@ -32,13 +32,13 @@ export function createApp({ parser = parseDocument, workbookBuilder = buildWorkb
 
   app.get('/api/health', async (req, res) => {
     const workers = await workerFilesAvailable();
-    res.status(workers ? 200 : 503).json({
-      status: workers ? 'ok' : 'unavailable',
+    res.json({
+      status: 'ok',
       service: 'conversion',
+      processingMode: 'in-process',
       workerFilesAvailable: workers,
       libreOffice: Boolean(await officeFinder()),
-      limits: { maxFileBytes: config.maxFileBytes, maxOutputBytes: config.maxOutputBytes },
-      ...(workers ? {} : { message: 'Parser worker files are missing from the server deployment.' })
+      limits: { maxFileBytes: config.maxFileBytes, maxOutputBytes: config.maxOutputBytes }
     });
   });
 

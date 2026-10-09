@@ -86,10 +86,14 @@ test('one Word parameter cell with a list creates one record per parameter', () 
   assert.deepEqual(parsed.records.slice(0, 2).map(record => [record.data.parameter, record.data.stationName]),
     [['Inlet Flow', 'ETP_Inlet'], ['Outlet Flow', 'ETP_Outlet']]);
 });
-test('actual DOCX buffer travels through Mammoth and worker extraction', async () => {
+test('actual DOCX buffer travels through Mammoth and extraction', async () => {
   const parsed = await parseDocument(await fixtureDocx(), 'test.docx');
   assert.equal(parsed.records.length, 2); assert.equal(parsed.records[0].data.serialNo, '29723');
   assert.equal(parsed.records[0].source_metadata.stations.length, 2);
+});
+test('optional local parser worker remains usable', async () => {
+  const parsed = await parseDocument(await fixtureDocx(), 'test.docx', { inProcess: false });
+  assert.equal(parsed.records.length, 2);
 });
 test('fake extensions, encrypted/damaged packages and aborted work are rejected', async () => {
   await assert.rejects(parseDocument(Buffer.from('hello'), 'bad.doc'), { code: 'INVALID_DOC' });
@@ -110,7 +114,7 @@ test('legacy DOC without LibreOffice returns a specific, actionable error', asyn
 });
 test('in-flight worker cancellation terminates extraction', async () => {
   const controller = new AbortController(), buffer = await fixtureDocx();
-  const pending = parseDocument(buffer, 'cancel.docx', { signal: controller.signal });
+  const pending = parseDocument(buffer, 'cancel.docx', { signal: controller.signal, inProcess: false });
   controller.abort(); await assert.rejects(pending, { code: 'FILE_TIMEOUT' });
 });
 test('approval distinguishes zero/missing, validates ranges and cannot waive core identity or invalid emails', () => {

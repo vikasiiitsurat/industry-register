@@ -17,7 +17,7 @@ Older `.doc` and `.xls` files need a working LibreOffice executable **on the mac
 
 ## Deploy with Vercel Services
 
-The root [vercel.json](vercel.json) defines a Vite `client` service and an Express `server` service. It routes `/api/(.*)` to the server and all other paths to the client. The frontend keeps its relative `/api/convert` request; no service binding is needed.
+The root [vercel.json](vercel.json) defines a Vite `client` service and an Express `server` service. It routes `/api/(.*)` to the server and all other paths to the client. The frontend keeps its relative `/api/convert` request; no service binding is needed. DOCX and XLSX parsing runs in the Express process so the deployed function can load the parser's npm dependencies; the optional parser worker remains available for local use.
 
 In the Vercel dashboard:
 
@@ -25,7 +25,7 @@ In the Vercel dashboard:
 2. Under **Settings → Build and Deployment**, choose **Services** as the Framework Preset. Keep the service roots and frameworks from `vercel.json`; do not override the project root with `client` or `server`. Use a supported Node.js version meeting the repository's `>=22.12` requirement.
 3. Keep **Include source files outside the Root Directory** enabled if the setting is shown. Both services use the root npm workspaces and `@industry/shared` from `shared/`. Use the repository's root `package-lock.json` for installation.
 4. Under **Settings → Environment Variables**, enable **Automatically expose System Environment Variables** if it is off. The server accepts the exact origins supplied by `VERCEL_URL`, `VERCEL_BRANCH_URL`, and `VERCEL_PROJECT_PRODUCTION_URL`, plus local development origins on ports 5173 and 3000. For any additional frontend domain or a custom local dev port, set `CLIENT_ORIGIN` to its full origin, such as `https://example.com`. Comma-separated exact origins are supported. Do not include a path.
-5. Deploy, then open `/api/health` on the deployment. It must return `status: "ok"` and `workerFilesAvailable: true`. Upload a sample DOCX and XLSX through the site and confirm each downloaded workbook has 34 headers. Test both a Preview URL and the production/custom domain you will use.
+5. Deploy, then open `/api/health` on the deployment. It must return `status: "ok"` and `processingMode: "in-process"`. Upload a sample DOCX and XLSX through the site and confirm each downloaded workbook has 34 headers. Test both a Preview URL and the production/custom domain you will use.
 
 **No environment variables are required for DOCX/XLSX conversion.** Do not set `DATABASE_URL`. Leave `LIBREOFFICE_PATH` and `EXCEL_TEMPLATE_PATH` unset on Vercel unless their files truly exist in the deployed server runtime. The generated 34-column workbook needs no template. `MAX_FILE_MB` can lower the upload limit; it cannot raise it above 4 MB. The server also rejects output over 4 MB, leaving room below [Vercel's 4.5 MB request and response limit](https://vercel.com/docs/functions/limitations). Large files must be split before upload.
 
@@ -40,4 +40,4 @@ npm.cmd test
 npm.cmd run build
 ```
 
-These checks exercise the exported Vercel entrypoint, health without a database, both parser workers, DOCX/XLSX conversion, the 34 headers, origin handling, and legacy-file errors. A real Vercel build and Preview deployment are still needed to validate Vercel's bundle tracing and hosted runtime.
+These checks exercise the exported Vercel entrypoint, health without a database, the DOCX/XLSX parsers, the optional local Word worker, the 34 headers, origin handling, and legacy-file errors. A real Vercel build and Preview deployment are still needed to validate Vercel's bundle tracing and hosted runtime.
