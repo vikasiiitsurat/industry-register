@@ -1,0 +1,18 @@
+# Word and Excel input mapping
+
+The exact 34 business columns and Excel order are defined in [shared/schema.js](../shared/schema.js). The parser reads editable Word tables. It recognizes adjacent label/value pairs and parameter grids with `Parameter` and `Unit` columns. Section headings such as **Industry Details**, **Station Details**, and **Parameter Details** distinguish the repeated contact labels. One parameter row or labeled parameter block creates one saved record.
+
+For Excel input, each worksheet with recognizable column headers is read. Each populated row below the header becomes one saved record. The exact 34-column output format maps by position, so its two **Contact Person Name** and **Contact Person Designation** columns stay distinct. Reordered columns can use recognized aliases such as **Company Name**, **Parameter Full Name**, and **Unit**. Empty formatted rows are ignored. Numeric cells with a simple zero-padding format such as `000000` keep their displayed leading zeros; identifiers stored as Excel text remain text. Cached formula results are read, but formulas are not calculated. Excel files with no recognizable header or data rows report an error.
+
+When a Parameter cell lists several names separated by commas, semicolons, or line breaks, the importer creates one record per name for both Word and Excel input. The other values in that source row repeat on each new record. If units, broadcast frequencies, ranges, serial numbers, or device IDs vary per parameter, separate those values with semicolons or line breaks in the same order; one value is shared by all parameters. Commas inside parentheses in a parameter name are preserved. Each new record keeps the source row and its parameter position in metadata.
+
+The app saves source position for each record. Both the saved-record list and Excel download keep all parameters for one station together, then continue to the next station in its first source appearance order. Parameters within a station follow their source row and list order. Existing records receive a source order when the database migration runs.
+
+For saved records imported before this behavior existed, `npm.cmd run db:expand-parameters` upgrades combined Parameter values transactionally. It excludes the original combined row, preserves it in the database, and creates active split rows. Running the command again leaves already split rows unchanged.
+
+For example, **Contact Person Name** under Industry Details fills `industryContactName`, while the same label under Station Details fills `stationContactName`. **Industry Code (as assigned by CPCB)** fills `industryCode`; **Industry Id (as maintained in your system)** fills `industryId`. IDs, phone numbers and zip codes remain text so leading zeros survive.
+
+Industry fields and station/device fields are copied to each parameter record. A single station name is assigned automatically. With multiple stations, a unique Inlet/Outlet name match is assigned to the matching parameter; otherwise station name stays blank. **Device Range** fills **Acceptable measurement range** when that field is not directly provided. **Permissible Standard** is kept as source metadata and is not treated as a device range. A directly labeled **Industry Category** maps to that column; classification and colour category are not guessed to be the same thing.
+
+Unprovided fields remain blank. The app does not generate CPCB codes, system IDs, vendor names, or contact details. Unknown table content and source locations are retained as structured import metadata. Documents without an industry/company name or parameter cannot create records and report an error. Scanned images and arbitrary prose are not parsed.
+

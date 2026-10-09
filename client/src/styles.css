@@ -1,0 +1,9 @@
+@import "tailwindcss";
+@theme { --font-sans: "Segoe UI", ui-sans-serif, system-ui, sans-serif; }
+:root { font-family: "Segoe UI", ui-sans-serif, system-ui, sans-serif; color: #17352f; background: #f6f8f4; font-synthesis: none; }
+* { box-sizing: border-box; }
+body { margin: 0; }
+button, input, select, textarea { font: inherit; }
+button { cursor: pointer; }
+button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid #66aa8f; outline-offset: 3px; }
+svg { flex-shrink: 0; }
