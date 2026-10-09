@@ -1,46 +1,43 @@
 # Industry Register
 
-A local web app that turns a Word document or Excel workbook directly into a 34-column Excel download. The default **One file → Excel** mode does not need a database. The optional **Saved dataset** mode combines repeated uploads in PostgreSQL and lets you download or erase the saved records. No review or approval step is needed.
+This app converts one Word document or Excel workbook into a downloadable XLSX file with the [34 requested columns](shared/schema.js). It is stateless: each request parses its uploaded file, groups parameters by station, builds the workbook, and returns it. The active app has no database routes, credentials, or setup.
 
-## Run on Windows
+## Run locally
 
-Install Node.js 22.12+. LibreOffice is needed only for older `.doc` and `.xls` files; `.docx` and `.xlsx` work without it. PostgreSQL is only needed for **Saved dataset** mode.
+Install Node.js 22.12 or later. From the repository root, run:
 
-1. From this project folder run:
+```powershell
+npm.cmd install
+npm.cmd run dev
+```
 
-   ```powershell
-   npm.cmd install
-   npm.cmd run dev
-   ```
+Open `http://127.0.0.1:5173`. Vite proxies `/api` to the local Express listener at `http://127.0.0.1:3001`. Choose one `.docx` or `.xlsx` file and click **Convert & download Excel**. A parameter list such as `SO2, NOX, PM2.5, PM10` becomes four rows; rows for each station stay together in source order. Source files and output bytes are not persisted between requests.
 
-2. Open [http://127.0.0.1:5173](http://127.0.0.1:5173). In **One file → Excel**, choose one file and click **Convert & download Excel**. The file is processed in memory and is not saved.
+Older `.doc` and `.xls` files need a working LibreOffice executable **on the machine running Express**. Local users may set `LIBREOFFICE_PATH` in `server/.env` to the actual `soffice.exe` path. If the server cannot run LibreOffice, save the file as DOCX or XLSX in Word, Excel, or LibreOffice before uploading. Renaming the extension does not convert it. Scanned documents need OCR and are not supported by the table parser.
 
-The API runs at `http://127.0.0.1:3001`. Keep the terminal open while using the app.
+## Deploy with Vercel Services
 
-For **Saved dataset**, create a PostgreSQL database named `industry_register`, copy `server/.env.example` to `server/.env`, set `DATABASE_URL`, run `npm.cmd run db:migrate`, and restart `npm.cmd run dev`. Leave `LIBREOFFICE_PATH=` blank for DOCX/XLSX use. Leave `EXCEL_TEMPLATE_PATH=` blank to generate the download automatically. **Excel input is uploaded in the browser; it does not use `EXCEL_TEMPLATE_PATH`.** If you set a download template, its first row must contain exactly the 34 required headers.
+The root [vercel.json](vercel.json) defines a Vite `client` service and an Express `server` service. It routes `/api/(.*)` to the server and all other paths to the client. The frontend keeps its relative `/api/convert` request; no service binding is needed.
 
-## Use
+In the Vercel dashboard:
 
-In **One file → Excel**, choose one `.docx`, `.xlsx`, `.doc`, or `.xls` file and click **Convert & download Excel**. No PostgreSQL connection is required. Word input uses labeled tables; Excel input uses recognizable column headers (for example **Industry Name**, **Parameter**, and **Unit of Measurement**). The exact 34-column output format is accepted, including its repeated contact headers. A Parameter cell containing `SO2, NOX, PM2.5, PM10` creates four rows, each with one parameter and the shared row details. Rows are grouped by station in first-appearance order. Missing values stay blank.
+1. Import this repository as **one project**, with the **Root Directory set to the repository root**.
+2. Under **Settings → Build and Deployment**, choose **Services** as the Framework Preset. Keep the service roots and frameworks from `vercel.json`; do not override the project root with `client` or `server`. Use a supported Node.js version meeting the repository's `>=22.12` requirement.
+3. Keep **Include source files outside the Root Directory** enabled if the setting is shown. Both services use the root npm workspaces and `@industry/shared` from `shared/`. Use the repository's root `package-lock.json` for installation.
+4. Under **Settings → Environment Variables**, enable **Automatically expose System Environment Variables** if it is off. The server accepts the exact origins supplied by `VERCEL_URL`, `VERCEL_BRANCH_URL`, and `VERCEL_PROJECT_PRODUCTION_URL`, plus local development origins on ports 5173 and 3000. For any additional frontend domain or a custom local dev port, set `CLIENT_ORIGIN` to its full origin, such as `https://example.com`. Comma-separated exact origins are supported. Do not include a path.
+5. Deploy, then open `/api/health` on the deployment. It must return `status: "ok"` and `workerFilesAvailable: true`. Upload a sample DOCX and XLSX through the site and confirm each downloaded workbook has 34 headers. Test both a Preview URL and the production/custom domain you will use.
 
-In **Saved dataset**, choose one or more files and click **Upload & save**. A later upload adds records. Uploading identical file content twice reports a duplicate so rows are not doubled.
+**No environment variables are required for DOCX/XLSX conversion.** Do not set `DATABASE_URL`. Leave `LIBREOFFICE_PATH` and `EXCEL_TEMPLATE_PATH` unset on Vercel unless their files truly exist in the deployed server runtime. The generated 34-column workbook needs no template. `MAX_FILE_MB` can lower the upload limit; it cannot raise it above 4 MB. The server also rejects output over 4 MB, leaving room below [Vercel's 4.5 MB request and response limit](https://vercel.com/docs/functions/limitations). Large files must be split before upload.
 
-Click **Download Excel** for every saved record in the requested 34-column order. The list on screen shows a few key columns for quick checking; Excel contains all 34. Parameters are grouped by station in the station's first source appearance, with parameters in their original order. Records created by the earlier review workflow are included.
+LibreOffice on a developer laptop is not available to the Vercel service. `/api/health` reports whether a runnable LibreOffice executable was found on the deployed server. If absent, DOC/XLS uploads return a Save As DOCX/XLSX instruction; legacy conversion on Vercel is **not claimed as supported**. Local LibreOffice conversion remains available.
 
-Click **Erase all data** and type `ERASE` to delete saved records, import history, and mapping settings. This cannot be undone. The database tables remain ready for another upload.
+See [API details](docs/api.md) and [mapping notes](docs/mapping.md). Vercel's [Services setup guide](https://vercel.com/kb/guide/vercel-services) describes the required Services framework setting and routing behavior.
 
-If you already imported files before parameter splitting was added, stop the app and run `npm.cmd run db:expand-parameters` once. It creates one active record per parameter, retains the original combined rows as excluded history, and can be rerun safely. The current local database has already been upgraded.
-
-For legacy `.doc` or `.xls`, install LibreOffice and, if the app cannot find it, set `LIBREOFFICE_PATH` to the actual `soffice.exe` path. You can also use **Save As** in Word or Excel to make a `.docx` or `.xlsx`. Changing the filename extension does not convert the file.
-
-Word documents must contain editable tables with an industry/company name and at least one parameter. Excel files must have recognizable headers and at least one populated data row. An empty output template is not input data. Scanned images need OCR first. See [mapping notes](docs/mapping.md) for label behavior and [API](docs/api.md) for endpoints.
-
-## Checks
+## Verify
 
 ```powershell
 npm.cmd test
 npm.cmd run build
 ```
 
-The integration test runs in a separate temporary PostgreSQL schema when `TEST_DATABASE_URL` is set; it never clears your application tables. Uploads and downloads are processed in memory. Source file bytes are not permanently stored.
-
+These checks exercise the exported Vercel entrypoint, health without a database, both parser workers, DOCX/XLSX conversion, the 34 headers, origin handling, and legacy-file errors. A real Vercel build and Preview deployment are still needed to validate Vercel's bundle tracing and hosted runtime.

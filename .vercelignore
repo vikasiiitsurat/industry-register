@@ -1,0 +1,15 @@
+.local/
+.vercel/
+server/.env
+node_modules/
+client/dist/
+coverage/
+test-results/
+*.log
+server/test/
+server/src/db/
+server/src/scripts/
+server/src/validation/
+server/src/services/imports.js
+server/src/services/records.js
+server/src/services/parameter-upgrade.js

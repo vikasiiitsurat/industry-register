@@ -4,12 +4,9 @@
   "engines": { "node": ">=22.12" },
   "scripts": {
     "dev": "concurrently -k -n API,WEB -c cyan,green \"npm run dev -w server\" \"npm run dev -w client\"",
-    "db:migrate": "npm run db:migrate -w server",
-    "db:expand-parameters": "npm run db:expand-parameters -w server",
     "build": "npm run build -w client",
     "start": "npm start -w server",
     "test": "npm test -w server",
-    "test:integration": "npm run test:integration -w server",
     "fixture": "node scripts/create-fixture.mjs",
     "samples:inspect": "node scripts/inspect-samples.mjs"
   },

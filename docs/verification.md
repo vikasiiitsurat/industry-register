@@ -1,12 +1,7 @@
 # Verification
 
-The current workflow was checked with unit tests and an isolated real PostgreSQL schema. The integration test covers iterative Word and Excel uploads into one dataset, including an Excel row with four parameters expanding to four saved records; it also covers duplicate detection, 34-column export, older draft rows, erase confirmation, and re-uploading the same file after erase. The configured Excel download template was checked to ensure records start on row 2 even when it contains formatted blank rows. A real legacy XLS conversion through LibreOffice was also tested.
+Run `npm.cmd test` and `npm.cmd run build` from the repository root. The automated tests use synthetic documents and do not contact or change a database.
 
-The parameter upgrade was tested against an isolated older combined row for idempotence and preservation of its original as excluded history. The provided local workbook was parsed without importing it again: its four populated source rows produced 16 records. The existing four combined rows in the local application database were then upgraded to 16 active rows, and the in-memory Excel export was checked for one parameter per row.
+The conversion tests check the Express deployment entrypoint and health without `DATABASE_URL`, worker file availability, a DOCX-to-XLSX round trip with all 34 ordered headers, XLSX parameter splitting and station ordering, exact production/preview/local origin handling, rejection of a forged forwarded host, an unavailable-LibreOffice Save As response, invalid input, and oversized output. Parser tests cover table extraction, labels, identifiers, and workbook conversion locally.
 
-Ordering was tested with interleaved station rows in an isolated PostgreSQL schema. The list, pagination, and export group each station's parameters in first source appearance order. The new source-order migration was applied to the local database, and its existing 16 records were checked in both the API list and Excel export.
-
-Run `npm.cmd test` and `npm.cmd run build` from the project root. To run the isolated database test, set `TEST_DATABASE_URL` to a PostgreSQL connection whose user can create and drop schemas, then run `npm.cmd run test:integration`. The test creates and drops only its random schema.
-
-Generated synthetic Word documents and Excel workbooks were used for automated tests. A different real-world layout may need an additional label alias or parser rule. Legacy `.doc` and `.xls` need LibreOffice, and image-only documents need OCR before upload.
-
+After deployment, check `/api/health` and run a real DOCX and XLSX upload through a Vercel Preview URL. Local tests cannot prove how the Vercel service bundles worker dependencies or whether LibreOffice exists in its runtime. `/api/health` reports missing worker files as unavailable. Treat DOC/XLS as unsupported on Vercel until conversion succeeds there with an actual legacy file.

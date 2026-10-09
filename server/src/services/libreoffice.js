@@ -2,13 +2,23 @@ import { access, mkdtemp, writeFile, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { spawn } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
+import { promisify } from 'node:util';
 import { config } from '../config.js';
 import { AppError } from '../errors.js';
-export async function findLibreOffice() {
-  const candidates = [config.libreOfficePath, 'C:\\Program Files\\LibreOffice\\program\\soffice.exe', 'C:\\Program Files (x86)\\LibreOffice\\program\\soffice.exe', '/usr/bin/libreoffice', '/usr/bin/soffice', '/Applications/LibreOffice.app/Contents/MacOS/soffice'];
-  for (const dir of (process.env.PATH || '').split(path.delimiter)) candidates.push(path.join(dir, process.platform === 'win32' ? 'soffice.exe' : 'soffice'));
-  for (const candidate of candidates.filter(Boolean)) { try { await access(candidate); return candidate; } catch {} }
+const run = promisify(execFile);
+export async function findLibreOffice({ candidates = [config.libreOfficePath, 'C:\\Program Files\\LibreOffice\\program\\soffice.exe', 'C:\\Program Files (x86)\\LibreOffice\\program\\soffice.exe', '/usr/bin/libreoffice', '/usr/bin/soffice', '/Applications/LibreOffice.app/Contents/MacOS/soffice'], searchPath = process.env.PATH || '' } = {}) {
+  for (const dir of searchPath.split(path.delimiter).filter(Boolean)) candidates.push(path.join(dir, process.platform === 'win32' ? 'soffice.exe' : 'soffice'));
+  for (const candidate of candidates.filter(Boolean)) {
+    try {
+      await access(candidate);
+      const consoleExecutable = process.platform === 'win32' && /soffice\.exe$/i.test(candidate) ? candidate.replace(/\.exe$/i, '.com') : candidate;
+      let probe = candidate;
+      try { await access(consoleExecutable); probe = consoleExecutable; } catch {}
+      const { stdout, stderr } = await run(probe, ['--version'], { timeout: 5000, windowsHide: true });
+      if (/LibreOffice/i.test(stdout + stderr) || (probe === candidate && process.platform === 'win32' && /soffice\.exe$/i.test(candidate))) return candidate;
+    } catch { /* Try the next executable. */ }
+  }
   return null;
 }
 async function convertLegacy(buffer, { executable, timeout = config.conversionTimeout, root = tmpdir(), signal, source, target } = {}) {
